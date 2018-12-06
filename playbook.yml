@@ -80,13 +80,14 @@
       args:
         executable: powershell.exe
 
-    - name: Install AWSPowerShell
+    - name: Download AWSPowerShell
       win_get_url:
         url: https://sdk-for-net.amazonwebservices.com/latest/AWSToolsAndSDKForNet.msi
         dest: C:\tmp\AWSToolsAndSDKForNet.msi
-    - win_msi:
+
+    - mame: Install AWSPowerShell
+      win_package:
         path: C:\tmp\AWSToolsAndSDKForNet.msi
-        wait: yes
         state: present
 
     - name: Setup scheduled task for Data-transfer
@@ -95,7 +96,7 @@
         $trigger = New-ScheduledTaskTrigger -Daily -At 7pm
         $description = "Backup Tableau daily and copy backups to S3"
         $principal = New-ScheduledTaskPrincipal -UserID "NT AUTHORITY\SYSTEM" -LogonType ServiceAccount
-        $task = Register-ScheduledTask -TaskName "Tableau S3 Backups2" -Trigger $trigger -Action $action -Description $description -Principal $principal
+        $task = Register-ScheduledTask -TaskName "Tableau S3 Backups" -Trigger $trigger -Action $action -Description $description -Principal $principal
         $task.Triggers.Repetition.Duration = "P1D"
         $task | Set-ScheduledTask
 
@@ -107,7 +108,6 @@
       win_unzip:
         src: C:\tmp\install\AWS.EC2.Windows.Cloudwatch.json.zip
         dest: C:\Program Files\Amazon\SSM\Plugins\awsCloudWatch
-        delete_archive: yes
 
     - name: Save CW config by restarting the Service
       win_shell: |
