@@ -1,0 +1,114 @@
+---
+
+- name: Build Windows server.
+  hosts: all
+  tasks:
+    - name: install all critical and security updates
+      win_updates:
+        category_names:
+          - CriticalUpdates
+          - SecurityUpdates
+          - UpdateRollups
+        state: installed
+
+    - name: Firewall rules
+      win_shell: |
+        Set-NetFirewallProfile -Profile Domain -Enabled False
+        Set-NetFirewallRule -Group "@FirewallAPI.dll,-28502" -Direction Inbound -Profile Domain -Enabled True
+
+    - name: Create tmp directory
+      win_file:
+        path: C:\tmp\install
+        state: directory
+
+    - name: Create Tableau install folder
+      win_file:
+        path: C:\tabcmd
+        state: directory
+
+    - name: Create Tableau backup directory
+      win_file:
+        path: C:\backups\Tableau
+        state: directory
+
+    - name: Install Cholocatey
+      win_shell: |
+        iex ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1'))
+        choco feature enable -n allowGlobalConfirmation
+
+    - name: Install Google Chrome
+      win_chocolatey:
+        name: googlechrome
+        state: present
+
+    - name: Install Notepad++
+      win_chocolatey:
+        name: notepadplusplus
+        state: present
+
+    - name: Install python2.7
+      win_chocolatey:
+        name: python2
+        state: present
+
+    - name: Install python3
+      win_chocolatey:
+        name: python3
+        state: present
+
+    - name: Ensure that Python2.7 / Python3.6 are present on the global system path
+      win_path:
+        elements:
+        - 'C:\Python36'
+        - 'C:\Python27'
+
+    - name: Download AWS CLI
+      win_shell: |
+        $url = "https://s3.amazonaws.com/aws-cli/AWSCLI64.msi"
+        $output = "C:\tmp\install\AWSCLI64.msi"
+        $wc = New-Object System.Net.WebClient
+        $wc.DownloadFile($url, $output)
+
+    - name: AWS CLI install
+      win_package:
+        path: C:\tmp\install\AWSCLI64.msi
+        state: present
+
+    - name:  GET config files from S3
+      win_shell: |
+        aws s3 cp s3://dq-config-bucket/dq-tableau/gold-master/ C:\tmp\install\ --recursive
+      args:
+        executable: powershell.exe
+
+    - name: Install AWSPowerShell
+      win_get_url:
+        url: https://sdk-for-net.amazonwebservices.com/latest/AWSToolsAndSDKForNet.msi
+        dest: C:\tmp\AWSToolsAndSDKForNet.msi
+    - win_msi:
+        path: C:\tmp\AWSToolsAndSDKForNet.msi
+        wait: yes
+        state: present
+
+    - name: Setup scheduled task for Data-transfer
+      win_shell: |
+        $action = New-ScheduledTaskAction -Execute C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe -Argument '-ExecutionPolicy Unrestricted -NonInteractive -File C:\Scripts\tableau-backup.ps1' -WorkingDirectory c:\backups\Tableau
+        $trigger = New-ScheduledTaskTrigger -Daily -At 7pm
+        $description = "Backup Tableau daily and copy backups to S3"
+        $principal = New-ScheduledTaskPrincipal -UserID "NT AUTHORITY\SYSTEM" -LogonType ServiceAccount
+        $task = Register-ScheduledTask -TaskName "Tableau S3 Backups2" -Trigger $trigger -Action $action -Description $description -Principal $principal
+        $task.Triggers.Repetition.Duration = "P1D"
+        $task | Set-ScheduledTask
+
+    - name: Install Tableau cmd
+      win_shell: |
+        c:\tmp\install\TableauServerTabcmd-64bit-2018-GoldMaster.exe /VERYSILENT /NORESTART
+
+    - name: Unzip Cloudwatch config file
+      win_unzip:
+        src: C:\tmp\install\AWS.EC2.Windows.Cloudwatch.json.zip
+        dest: C:\Program Files\Amazon\SSM\Plugins\awsCloudWatch
+        delete_archive: yes
+
+    - name: Save CW config by restarting the Service
+      win_shell: |
+        Restart-Service AmazonSSMAgent
