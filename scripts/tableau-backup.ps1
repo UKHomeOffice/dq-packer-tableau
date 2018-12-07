@@ -10,15 +10,14 @@ $IsServerCommand       = $false
 $date                  = Get-Date
 
 # Tableau specific variables
-$appVersion            = "10.2"
-$backups_folder        = "C:\backups\Tableau"
-$bin_location          = "D:\Program Files\Tableau\Tableau Server\" + $appVersion + "\bin"
-$tabadmin              = $bin_location + "\tabadmin.exe"
+$backup_folder         = "C:\ProgramData\Tableau\Tableau Server\data\tabsvc\files\backups\"
 
 # AWS S3 Bucket variables
 $Region                = "eu-west-2"
 $BucketName            = $env:bucket_name
 $BucketSubFolder       = $env:bucket_sub_path
+$TableauTSMUser        = $env:tableau_tsm_user
+$TableauTSMPassword    = $env:tableau_tsm_password
 
 # Backup retention
 $DaysToKeep      = "7"
@@ -76,29 +75,37 @@ function Try-S3Bucket {
     }
 }
 
-# Function to backup Tableau using tabadmin
-function Tableau-Backup {
-	Write-Log "Starting Tableau backup..." -LogLevel Info
+# Function to log into TSM
+function TSM-Login {
+	Write-Log "Logging in to TSM" -LogLevel Info
 	try {
-		$output = &"$tabadmin" backup -d -v $backups_folder
-		Invoke-Expression $output
+		$output = tsm login -u $TableauTSMUser -p $TableauTSMPassword
+		$output = @($output -split '`n')
+		return $output
 	}
 	catch {
 		$last_error = $Error[0]
-		Write-Error "Tableau backups failed.`n$last_error`n"
+		Write-Error "TSM login failed.`n$last_error`n"
 		Exit 1
 	}
+}
+
+# Function to backup Tableau using tsm
+function Tableau-Backup {
+	Write-Log "Starting Tableau backup..." -LogLevel Info
+    $output = tsm maintenance backup -f ts_backup -d
+	$output = @($output -split '`n')
+	return $output
 }
 
 # Function to copy files in backup directory to S3
 function Copy-S3 {
 	Write-Log "Start Copy to S3..." -LogLevel Info
-	$output = Get-ChildItem $backups_folder -Recurse
+	$output = Get-ChildItem "C:\ProgramData\Tableau\Tableau Server\data\tabsvc\files\backups\" -Recurse
 	foreach ($path in $output) {
 		try {
-		  Write-Host $Path
-		  $filename = [System.IO.Path]::GetFileName($path)
-		  Write-S3Object -BucketName $BucketName -File $path -Key $BucketSubFolder/$filename -Region $Region
+		  #Write-Host $Path
+		  Write-S3Object -BucketName $BucketName -File $backup_folder/$path -Key $BucketSubFolder/$path -Region $Region
 	  }
 	  catch {
 		  $last_error = $Error[0]
@@ -110,9 +117,9 @@ function Copy-S3 {
 
 # Function to remove local backups, depending on the backup retention (DaysToKeep)
 function Remove-Local-Backups {
-	Write-Log "Zipping up Tableau Logs" -LogLevel Info
+	Write-Log "Remove local backups" -LogLevel Info
   try {
-	  $oldfiles = Get-ChildItem $backups_folder -file | Where-object {$_.LastWriteTime -lt $date.AddDays(-$DaysToKeep)}
+	  $oldfiles = Get-ChildItem $backup_folder -file | Where-object {$_.LastWriteTime -lt $date.AddDays(-$DaysToKeep)}
     if($oldfiles.count -gt 0)
       {
   	  $oldfiles.Delete()
@@ -127,6 +134,7 @@ function Remove-Local-Backups {
 
 function Main {
 	Try-S3Bucket
+	TSM-Login
 	Tableau-Backup
 	Copy-S3
 	Remove-Local-Backups
