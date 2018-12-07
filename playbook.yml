@@ -85,7 +85,7 @@
         url: https://sdk-for-net.amazonwebservices.com/latest/AWSToolsAndSDKForNet.msi
         dest: C:\tmp\AWSToolsAndSDKForNet.msi
 
-    - mame: Install AWSPowerShell
+    - name: Install AWSPowerShell
       win_package:
         path: C:\tmp\AWSToolsAndSDKForNet.msi
         state: present
