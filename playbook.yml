@@ -92,11 +92,11 @@
 
     - name: Setup scheduled task for Tableau Backup to S3
       win_shell: |
-        $action = New-ScheduledTaskAction -Execute C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe -Argument '-ExecutionPolicy Unrestricted -NonInteractive -File C:\Scripts\tableau-backup.ps1' -WorkingDirectory c:\backups\Tableau
+        $action = New-ScheduledTaskAction -Execute C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe -Argument '-ExecutionPolicy Unrestricted -NonInteractive -File C:\Scripts\tableau-backup.ps1'
         $trigger = New-ScheduledTaskTrigger -Daily -At 7pm
         $description = "Backup Tableau daily and copy backups to S3"
         $principal = New-ScheduledTaskPrincipal -UserID "NT AUTHORITY\SYSTEM" -LogonType ServiceAccount
-        $task = Register-ScheduledTask -TaskName "Tableau S3 Backups" -Trigger $trigger -Action $action -Description $description -Principal $principal
+        $task = Register-ScheduledTask -TaskName "Tableau S3 Backup" -Trigger $trigger -Action $action -Description $description -Principal $principal
         $task.Triggers.Repetition.Duration = "P1D"
         $task | Set-ScheduledTask
 
