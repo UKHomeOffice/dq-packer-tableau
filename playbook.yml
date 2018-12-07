@@ -90,7 +90,7 @@
         path: C:\tmp\AWSToolsAndSDKForNet.msi
         state: present
 
-    - name: Setup scheduled task for Data-transfer
+    - name: Setup scheduled task for Tableau Backup to S3
       win_shell: |
         $action = New-ScheduledTaskAction -Execute C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe -Argument '-ExecutionPolicy Unrestricted -NonInteractive -File C:\Scripts\tableau-backup.ps1' -WorkingDirectory c:\backups\Tableau
         $trigger = New-ScheduledTaskTrigger -Daily -At 7pm
