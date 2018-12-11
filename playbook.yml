@@ -104,6 +104,14 @@
       win_shell: |
         c:\tmp\install\TableauServerTabcmd-64bit-2018-GoldMaster.exe /VERYSILENT /NORESTART
 
+    - name: Install Tableau Server
+      win_shell: |
+        c:\tmp\install\TableauServer-64bit-2018-GoldMaster.exe /VERYSILENT /ACCEPTEULA /NORESTART
+
+    - name: Install Tableau Desktop
+      win_shell: |
+        c:\tmp\install\TableauDesktop-64bit-2018-GoldMaster.exe /quiet /norestart ACCEPTEULA=1
+
     - name: Unzip Cloudwatch config file
       win_unzip:
         src: C:\tmp\install\AWS.EC2.Windows.Cloudwatch.json.zip
