@@ -106,7 +106,7 @@
 
     - name: Install Tableau Server
       win_shell: |
-        c:\tmp\install\TableauServer-64bit-2018-GoldMaster.exe /VERYSILENT /ACCEPTEULA /NORESTART
+        c:\tmp\install\TableauServer-64bit-2018-GoldMaster.exe /VERYSILENT /NORESTART /ACCEPTEULA  
 
     - name: Install Tableau Desktop
       win_shell: |
